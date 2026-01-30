@@ -2,20 +2,40 @@ package transactions
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/csv"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ausocean/cloud/datastore"
 )
 
+const TypeTransaction = "Transaction"
+
 type Transaction struct {
+	ID            string
 	EffectiveDate time.Time
 	EnteredDate   time.Time
 	Description   string
 	Amount        float64
 	Balance       float64
+	Category      string
+}
+
+const CatUncategorised string = "uncategorised"
+
+// Copy is not currently implemented.
+func (s *Transaction) Copy(datastore.Entity) (datastore.Entity, error) {
+	return nil, datastore.ErrUnimplemented
+}
+
+// GetCache returns nil, indicating no caching.
+func (s *Transaction) GetCache() datastore.Cache {
+	return nil
 }
 
 func ParseTransactionsFromCSV(data []byte) ([]Transaction, error) {
@@ -27,7 +47,6 @@ func ParseTransactionsFromCSV(data []byte) ([]Transaction, error) {
 
 	trans := []Transaction{}
 	for _, row := range records[1:] {
-		log.Printf("row: %+v", row)
 
 		enteredDate, err := time.Parse("02/01/2006", row[1])
 		if err != nil {
@@ -44,12 +63,12 @@ func ParseTransactionsFromCSV(data []byte) ([]Transaction, error) {
 			}
 		}
 
-		amount, err := strconv.ParseFloat(strings.Split(row[3], "$")[1], 64)
+		amount, err := strconv.ParseFloat(strings.ReplaceAll(row[3], "$", ""), 64)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse amount as float: %v", err)
 		}
 
-		balance, err := strconv.ParseFloat(strings.Split(row[4], "$")[1], 64)
+		balance, err := strconv.ParseFloat(strings.ReplaceAll(row[4], "$", ""), 64)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse balance as float: %v", err)
 		}
@@ -66,4 +85,29 @@ func ParseTransactionsFromCSV(data []byte) ([]Transaction, error) {
 	}
 
 	return trans, nil
+}
+
+func GetTransactionHash(effectiveDate time.Time, amount, balance float64, desc string) string {
+	data := fmt.Appendf(nil, "%v:%f:%f:%s", effectiveDate, amount, balance, desc)
+	return fmt.Sprintf("%x", sha256.Sum256(data))
+}
+
+// Create will try to create a transaction.
+func (t *Transaction) Create(ctx context.Context, store datastore.Store) error {
+	t.ID = GetTransactionHash(t.EffectiveDate, t.Amount, t.Balance, t.Description)
+	if t.Category == "" {
+		t.Category = CatUncategorised
+	}
+	key := store.NameKey(TypeTransaction, t.ID)
+	return store.Create(ctx, key, t)
+}
+
+func GetAll(ctx context.Context, store datastore.Store) ([]Transaction, error) {
+	q := store.NewQuery(TypeTransaction, false, "ID")
+	txs := []Transaction{}
+	_, err := store.GetAll(ctx, q, &txs)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get all transactions: %v", err)
+	}
+	return txs, nil
 }

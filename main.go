@@ -25,11 +25,12 @@ LICENSE
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
-	"os"
 
+	"github.com/ausocean/cloud/datastore"
 	"github.com/davidsutts/fine-ants/transactions"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
@@ -40,26 +41,45 @@ const version = "0.0.1"
 // service holds important information about the app accessible by all
 // handlers.
 type service struct {
+	store datastore.Store
+	dev   bool
 }
 
 // registerEndpoints registers the endpoints to be used in the app.
 func (svc *service) registerEndpoints(app *fiber.App) {
-	v1 := app.Group("/api/v1")
+	api := app.Group("/api")
 
-	v1.Get("/version", svc.versionHandler)
+	api.Get("/version", svc.versionHandler)
 
-	v1.Group("/get").
-		Get("/transactions", svc.getTransactionsHandler)
+	api.Group("/transaction").
+		Post("/parse", svc.parseTransactionsHandler).
+		Get("/get-all", svc.getAllTransactionsHandler)
+}
+
+func errorHandler(c *fiber.Ctx, err error) error {
+	log.Errorf("[%s] %v", c.Route().Path, err)
+	c.Status(fiber.StatusInternalServerError)
+	return nil
 }
 
 func main() {
 	svc := &service{}
 
+	ctx := context.Background()
+
 	// Get CLI args.
-	port := flag.Int("port", 8200, "Port number to host webserver")
+	port := flag.Int("port", 8080, "Port number to host webserver")
+	dev := flag.Bool("dev", false, "Run in development mode")
 	flag.Parse()
 
-	app := fiber.New()
+	svc.dev = *dev
+	if svc.dev {
+		log.Info("running in dev mode")
+	}
+
+	svc.getStore(ctx)
+
+	app := fiber.New(fiber.Config{ErrorHandler: errorHandler})
 	svc.registerEndpoints(app)
 
 	log.Fatal(app.Listen(fmt.Sprintf(":%d", *port)))
@@ -70,11 +90,15 @@ func (svc *service) versionHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"version": version})
 }
 
-func (svc *service) getTransactionsHandler(c *fiber.Ctx) error {
-	// Load transactions.
-	file, err := os.Open("transactions.csv")
+func (svc *service) parseTransactionsHandler(c *fiber.Ctx) error {
+	fh, err := c.FormFile("file")
 	if err != nil {
-		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to open transactions file: %v", err)})
+		return fmt.Errorf("unable to get formfile: %v", err)
+	}
+
+	file, err := fh.Open()
+	if err != nil {
+		return fmt.Errorf("unable to open formfile: %v", err)
 	}
 
 	data, err := io.ReadAll(file)
@@ -89,4 +113,13 @@ func (svc *service) getTransactionsHandler(c *fiber.Ctx) error {
 
 	return c.JSON(transactions)
 
+}
+
+func (svc *service) getAllTransactionsHandler(c *fiber.Ctx) error {
+	txs, err := transactions.GetAll(c.Context(), svc.store)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(txs)
 }
