@@ -1,6 +1,7 @@
 <script lang="ts">
     import upload from "./assets/upload.svg";
     import {
+        categoriseTransaction,
         getAllTransactions,
         parseTransactions,
         type transaction,
@@ -8,10 +9,11 @@
     import { onMount } from "svelte";
 
     let transactions: transaction[] = $state([]);
+    let sortIndex: number = $state(0);
 
     const modeList = "List";
     const modeSort = "Sort";
-    let pageMode: number = $state(1);
+    let pageMode: number = $state(0);
     const modes = [modeList, modeSort];
 
     type category = {
@@ -36,6 +38,12 @@
         { name: "Sport", emoji: "🏃" },
         { name: "Donations", emoji: "🙌" },
         { name: "Personal", emoji: "💰" },
+
+        { name: "Dining", emoji: "☕" },
+        { name: "Gift", emoji: "🎁" },
+        { name: "Transfer", emoji: "↔️" },
+        { name: "Skip", emoji: "⏩" },
+        { name: "Back", emoji: "⏪" },
     ];
 
     async function handleFileUpload(e: Event) {
@@ -51,11 +59,46 @@
 
         await parseTransactions(data);
         transactions = await getAllTransactions();
+        for (let i = 0; i < transactions.length; i++) {
+            console.log(transactions[i].Category);
+            if (transactions[i].Category == "") {
+                sortIndex = i;
+            }
+        }
     }
 
     onMount(async () => {
         transactions = await getAllTransactions();
+        for (let i = 0; i < transactions.length; i++) {
+            console.log(transactions[i].Category);
+            if (transactions[i].Category == "") {
+                sortIndex = i;
+                return;
+            }
+        }
     });
+
+    async function onCategorise(c: category) {
+        if (c.name == "Back") {
+            sortIndex--;
+            return;
+        }
+        if (c.name != "Skip") {
+            transactions[sortIndex] = await categoriseTransaction(
+                transactions[sortIndex],
+                c.name,
+            );
+        }
+        sortIndex++;
+        while (transactions[sortIndex].Category != "") {
+            sortIndex++;
+            console.log(
+                "transaction[%d] = %s",
+                sortIndex,
+                transactions[sortIndex].Category,
+            );
+        }
+    }
 </script>
 
 {#snippet element()}
@@ -75,7 +118,10 @@
             <p class="col-span-1 font-bold text-lg text-right pr-5">
                 {money.format(transaction.Amount)}
             </p>
-            <p class="col-span-3">{transaction.Description}</p>
+            <div class="col-span-3 flex gap-2">
+                <p>{transaction.Description}</p>
+                <p class="text-gray-500">({transaction.Category})</p>
+            </div>
             <div class="col-span-1 flex gap-2">
                 <p class="text-gray-500">BAL:</p>
                 {transaction.Balance}
@@ -87,6 +133,7 @@
 {#snippet categoryButton(c: category, index: number)}
     <button
         class="border px-2 col-span-1 cursor-pointer hover:border-gray-400 hover:text-gray-400"
+        onclick={() => onCategorise(c)}
     >
         <p class="text-gray-500">{index}</p>
         <p>{c.emoji}</p>
@@ -98,13 +145,18 @@
     {#if transactions.length > 0}
         <div class="m-auto flex-col gap-5 flex">
             <div class="border p-5 flex flex-col items-center gap-3">
-                <p class="w-full text-left">
-                    {transactions[0].EffectiveDate.toLocaleDateString()}
-                </p>
+                <div class="flex justify-between w-full">
+                    <p>
+                        {transactions[
+                            sortIndex
+                        ].EffectiveDate.toLocaleDateString()}
+                    </p>
+                    <p>{transactions[sortIndex].Category}</p>
+                </div>
                 <p class="text-5xl">
-                    {money.format(transactions[0].Amount)}
+                    {money.format(transactions[sortIndex].Amount)}
                 </p>
-                <p>{transactions[0].Description}</p>
+                <p>{transactions[sortIndex].Description}</p>
             </div>
             <div class="grid grid-cols-5 gap-5">
                 {#each categories as c, i}
@@ -130,6 +182,13 @@
             <strong>Upload</strong>
             <p>↥</p>
         </label>
+        <a
+            class="hover:cursor-pointer border px-2 h-full w-24 text-center"
+            href="/api/transaction/download"
+        >
+            <strong>Download</strong>
+            <p>↧</p>
+        </a>
         <button
             class="hover:cursor-pointer border px-2 h-full w-24"
             onmousedown={() => (pageMode = (pageMode + 1) % 2)}

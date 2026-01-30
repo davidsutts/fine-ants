@@ -26,9 +26,12 @@ package main
 
 import (
 	"context"
+	"encoding/csv"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"strconv"
 
 	"github.com/ausocean/cloud/datastore"
 	"github.com/davidsutts/fine-ants/transactions"
@@ -53,7 +56,9 @@ func (svc *service) registerEndpoints(app *fiber.App) {
 
 	api.Group("/transaction").
 		Post("/parse", svc.parseTransactionsHandler).
-		Get("/get-all", svc.getAllTransactionsHandler)
+		Post("/categorise", svc.categoriseTransactionHandler).
+		Get("/get-all", svc.getAllTransactionsHandler).
+		Get("/download", svc.downloadTransactionsHandler)
 }
 
 func errorHandler(c *fiber.Ctx, err error) error {
@@ -106,12 +111,19 @@ func (svc *service) parseTransactionsHandler(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to read all transactions: %v", err)})
 	}
 
-	transactions, err := transactions.ParseTransactionsFromCSV(data)
+	txs, err := transactions.ParseTransactionsFromCSV(data)
 	if err != nil {
 		return c.JSON(fiber.Map{"error": fmt.Sprintf("unable to parse transactions: %v", err)})
 	}
 
-	return c.JSON(transactions)
+	for _, tx := range txs {
+		err := tx.Create(c.Context(), svc.store)
+		if err != nil {
+			log.Errorf("unable to create transaction (%s): %v", tx.Description, err)
+		}
+	}
+
+	return c.JSON(nil)
 
 }
 
@@ -122,4 +134,42 @@ func (svc *service) getAllTransactionsHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(txs)
+}
+
+func (svc *service) categoriseTransactionHandler(c *fiber.Ctx) error {
+	tx := transactions.Transaction{}
+	err := json.Unmarshal(c.Body(), &tx)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal transaction from body: %v", err)
+	}
+
+	err = tx.UpdateCategory(c.Context(), svc.store, tx.Category)
+	if err != nil {
+		return fmt.Errorf("unable to update transaction category: %v", err)
+	}
+
+	log.Infof("Categorised transaction: %+v", tx)
+
+	return c.JSON(tx)
+}
+
+func (svc *service) downloadTransactionsHandler(c *fiber.Ctx) error {
+	txs, err := transactions.GetAll(c.Context(), svc.store)
+	if err != nil {
+		return err
+	}
+
+	w := csv.NewWriter(c)
+	defer w.Flush()
+	for _, tx := range txs {
+		err = w.Write([]string{tx.EffectiveDate.String(), strconv.FormatFloat(tx.Amount, 'f', 2, 64), tx.Category})
+		if err != nil {
+			log.Errorf("failed to write record")
+		}
+	}
+
+	c.Response().Header.SetContentType("text/csv")
+	c.Response().Header.Set("Content-Disposition", "attachment; filename=transactions.csv")
+
+	return nil
 }

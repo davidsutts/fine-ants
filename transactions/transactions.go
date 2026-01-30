@@ -95,11 +95,24 @@ func GetTransactionHash(effectiveDate time.Time, amount, balance float64, desc s
 // Create will try to create a transaction.
 func (t *Transaction) Create(ctx context.Context, store datastore.Store) error {
 	t.ID = GetTransactionHash(t.EffectiveDate, t.Amount, t.Balance, t.Description)
-	if t.Category == "" {
-		t.Category = CatUncategorised
-	}
 	key := store.NameKey(TypeTransaction, t.ID)
 	return store.Create(ctx, key, t)
+}
+
+func (t *Transaction) UpdateCategory(ctx context.Context, store datastore.Store, category string) error {
+	id := t.ID
+	if id == "" {
+		id = GetTransactionHash(t.EffectiveDate, t.Amount, t.Balance, t.Description)
+	}
+
+	dst := &Transaction{}
+	return store.Update(ctx, store.NameKey(TypeTransaction, id), func(e datastore.Entity) {
+		_t, ok := e.(*Transaction)
+		if !ok {
+			return
+		}
+		_t.Category = t.Category
+	}, dst)
 }
 
 func GetAll(ctx context.Context, store datastore.Store) ([]Transaction, error) {
