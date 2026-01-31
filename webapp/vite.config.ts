@@ -13,4 +13,7 @@ export default defineConfig({
       },
     },
   },
+  ssr: {
+    noExternal: ["svelte-icons-pack"],
+  },
 });

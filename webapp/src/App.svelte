@@ -1,20 +1,28 @@
 <script lang="ts">
-    import upload from "./assets/upload.svg";
     import {
         categoriseTransaction,
         getAllTransactions,
         parseTransactions,
         type transaction,
     } from "../types/transaction";
+
     import { onMount } from "svelte";
+    import Settings from "./lib/components/Settings.svelte";
 
     let transactions: transaction[] = $state([]);
     let sortIndex: number = $state(0);
 
     const modeList = "LIST";
     const modeSort = "SORT";
-    let pageMode: number = $state(1);
+    let pageMode: number = $state(0);
     const modes = [modeList, modeSort];
+
+    $effect(() => {
+        $inspect(accounts);
+    });
+
+    let accounts: string[] = $state(["Transactions"]);
+    let showSettings: boolean = $state(true);
 
     type category = {
         name: string;
@@ -204,7 +212,16 @@
             >
                 [ {modes[pageMode]} ]
             </button>
+            <button
+                class="hover:cursor-pointer hover:text-slate-500 text-lg"
+                onclick={() => {
+                    showSettings = !showSettings;
+                }}>[ SETTINGS ]</button
+            >
         </div>
+        {#if showSettings}
+            <Settings bind:accountArray={accounts}></Settings>
+        {/if}
         <div class="w-full border border-dashed my-5"></div>
         <input
             accept="text/csv"
