@@ -11,9 +11,9 @@
     let transactions: transaction[] = $state([]);
     let sortIndex: number = $state(0);
 
-    const modeList = "List";
-    const modeSort = "Sort";
-    let pageMode: number = $state(0);
+    const modeList = "LIST";
+    const modeSort = "SORT";
+    let pageMode: number = $state(1);
     const modes = [modeList, modeSort];
 
     type category = {
@@ -46,6 +46,21 @@
         { name: "Back", emoji: "⏪" },
     ];
 
+    function getNewSortIndex() {
+        for (let i = 0; i < transactions.length; i++) {
+            console.log(transactions[i].Category);
+            if (transactions[i].Category == "") {
+                sortIndex = i;
+                return;
+            }
+            if (i == transactions.length - 1) {
+                // We haven't found an empty transaction.
+                sortIndex = -1;
+                return;
+            }
+        }
+    }
+
     async function handleFileUpload(e: Event) {
         const input = e.target as HTMLInputElement;
 
@@ -59,23 +74,12 @@
 
         await parseTransactions(data);
         transactions = await getAllTransactions();
-        for (let i = 0; i < transactions.length; i++) {
-            console.log(transactions[i].Category);
-            if (transactions[i].Category == "") {
-                sortIndex = i;
-            }
-        }
+        getNewSortIndex();
     }
 
     onMount(async () => {
         transactions = await getAllTransactions();
-        for (let i = 0; i < transactions.length; i++) {
-            console.log(transactions[i].Category);
-            if (transactions[i].Category == "") {
-                sortIndex = i;
-                return;
-            }
-        }
+        getNewSortIndex();
     });
 
     async function onCategorise(c: category) {
@@ -110,21 +114,24 @@
 {/snippet}
 
 {#snippet table()}
-    <div class="grid grid-cols-6 shrink m-auto">
+    <div class="grid grid-cols-6 shrink mx-auto gap-5">
         {#each transactions as transaction}
             <p class="col-span-1">
                 {transaction.EnteredDate.toLocaleDateString("en-AU")}
             </p>
-            <p class="col-span-1 font-bold text-lg text-right pr-5">
-                {money.format(transaction.Amount)}
-            </p>
-            <div class="col-span-3 flex gap-2">
+            <p class="col-span-1 font-bold text-lg text-right pr-5"></p>
+            <div class="col-span-3 flex flex-col">
                 <p>{transaction.Description}</p>
-                <p class="text-gray-500">({transaction.Category})</p>
+                <p class="text-slate-500">{transaction.Category}</p>
             </div>
-            <div class="col-span-1 flex gap-2">
-                <p class="text-gray-500">BAL:</p>
-                {transaction.Balance}
+            <div class="col-span-1 flex flex-col">
+                <p class="font-bold text-right">
+                    {money.format(transaction.Amount)}
+                </p>
+                <div class="flex flex-row justify-between text-slate-500">
+                    <p>BAL:</p>
+                    {money.format(transaction.Balance)}
+                </div>
             </div>
         {/each}
     </div>
@@ -132,19 +139,19 @@
 
 {#snippet categoryButton(c: category, index: number)}
     <button
-        class="border px-2 col-span-1 cursor-pointer hover:border-gray-400 hover:text-gray-400"
+        class="px-2 col-span-1 cursor-pointer hover:border-gray-400 hover:text-gray-400"
         onclick={() => onCategorise(c)}
     >
-        <p class="text-gray-500">{index}</p>
+        <p class="text-slate-500">{index}</p>
         <p>{c.emoji}</p>
-        <p>{c.name}</p>
+        <p>[ {c.name} ]</p>
     </button>
 {/snippet}
 
 {#snippet sort()}
-    {#if transactions.length > 0}
+    {#if transactions.length > 0 && sortIndex >= 0}
         <div class="m-auto flex-col gap-5 flex">
-            <div class="border p-5 flex flex-col items-center gap-3">
+            <div class="p-5 flex flex-col items-center gap-3">
                 <div class="flex justify-between w-full">
                     <p>
                         {transactions[
@@ -156,58 +163,62 @@
                 <p class="text-5xl">
                     {money.format(transactions[sortIndex].Amount)}
                 </p>
-                <p>{transactions[sortIndex].Description}</p>
+                <p>[ {transactions[sortIndex].Description} ]</p>
             </div>
+            <div class="w-full border border-dashed my-5"></div>
             <div class="grid grid-cols-5 gap-5">
                 {#each categories as c, i}
                     {@render categoryButton(c, i + 1)}
                 {/each}
             </div>
         </div>
-    {:else}
-        <div class="border p-5">Upload transactions to get started.</div>
+    {:else if transactions.length == 0}
+        <div class="mx-auto p-5">Upload transactions to get started.</div>
+    {:else if sortIndex <= 0}
+        <div class="p-5 mx-auto">[ All transactions have been sorted ]</div>
     {/if}
 {/snippet}
 
-<main class="p-5 font-mono">
-    <header class="mb-5 flex gap-5">
-        <div>
-            <h1 class="text-2xl">🐜 Fine-Ants</h1>
-            <p>Finance Done Properly</p>
+<main class="p-5 font-[Cutive_Mono] bg-slate-600 min-h-screen w-screen">
+    <div class="bg-slate-200 p-10 w-fit mx-auto">
+        <header class="mb-5 flex mx-auto w-fit items-center flex-col">
+            <h1 class="text-4xl w-fit font-bold font-sans">🐜 Fine-Ants</h1>
+            <p class="text-xl w-fit text-slate-500">Finance Done Properly</p>
+        </header>
+        <div class="flex gap-5 mx-auto w-fit">
+            <label
+                for="avatar"
+                class="hover:cursor-pointer hover:text-slate-500 text-lg"
+            >
+                [ UPLOAD ↥ ]
+            </label>
+            <a
+                class="hover:cursor-pointer hover:text-slate-500 text-lg"
+                href="/api/transaction/download"
+            >
+                [ DOWNLOAD ↧ ]
+            </a>
+            <button
+                class="hover:cursor-pointer hover:text-slate-500 text-lg"
+                onmousedown={() => (pageMode = (pageMode + 1) % 2)}
+            >
+                [ {modes[pageMode]} ]
+            </button>
         </div>
-        <label
-            for="avatar"
-            class="hover:cursor-pointer w-24 h-full shrink-0 border px-2 text-center"
-        >
-            <strong>Upload</strong>
-            <p>↥</p>
-        </label>
-        <a
-            class="hover:cursor-pointer border px-2 h-full w-24 text-center"
-            href="/api/transaction/download"
-        >
-            <strong>Download</strong>
-            <p>↧</p>
-        </a>
-        <button
-            class="hover:cursor-pointer border px-2 h-full w-24"
-            onmousedown={() => (pageMode = (pageMode + 1) % 2)}
-        >
-            <strong>Mode</strong>
-            <p>{modes[pageMode]}</p>
-        </button>
-    </header>
-    <input
-        accept="text/csv"
-        id="avatar"
-        type="file"
-        class="hidden"
-        onchange={handleFileUpload}
-    />
-    <div class="flex gap-5">
-        {@render element()}
+        <div class="w-full border border-dashed my-5"></div>
+        <input
+            accept="text/csv"
+            id="avatar"
+            type="file"
+            class="hidden"
+            onchange={handleFileUpload}
+        />
+        <div class="flex gap-5">
+            {@render element()}
+        </div>
     </div>
 </main>
 
 <style>
+    @import url("https://fonts.googleapis.com/css2?family=Cutive+Mono&display=swap");
 </style>

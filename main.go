@@ -31,6 +31,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 
 	"github.com/ausocean/cloud/datastore"
@@ -132,6 +133,23 @@ func (svc *service) getAllTransactionsHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
+
+	slices.SortFunc(txs, func(a, b transactions.Transaction) int {
+		if a.EffectiveDate.Before(b.EffectiveDate) {
+			return -1
+		}
+		if b.EffectiveDate.Before(a.EffectiveDate) {
+			return 1
+		}
+
+		// Both dates are the same, sort by balance.
+		if a.Balance+b.Amount == b.Balance {
+			return -1
+		} else {
+			return 1
+		}
+
+	})
 
 	return c.JSON(txs)
 }
