@@ -6,8 +6,15 @@
         type transaction,
     } from "../types/transaction";
 
+    import {
+        updateAccounts,
+        type account,
+        getAllAccounts,
+    } from "../types/account";
+
     import { onMount } from "svelte";
     import Settings from "./lib/components/Settings.svelte";
+    import AccountSelect from "./lib/components/AccountSelect.svelte";
 
     let transactions: transaction[] = $state([]);
     let sortIndex: number = $state(0);
@@ -17,11 +24,7 @@
     let pageMode: number = $state(0);
     const modes = [modeList, modeSort];
 
-    $effect(() => {
-        $inspect(accounts);
-    });
-
-    let accounts: string[] = $state(["Transactions"]);
+    let accounts: account[] = $state([]);
     let showSettings: boolean = $state(true);
 
     type category = {
@@ -80,6 +83,8 @@
         let data = new FormData();
         data.append("file", files[0], files[0].name);
 
+        showSettings = true;
+
         await parseTransactions(data);
         transactions = await getAllTransactions();
         getNewSortIndex();
@@ -87,6 +92,7 @@
 
     onMount(async () => {
         transactions = await getAllTransactions();
+        accounts = await getAllAccounts();
         getNewSortIndex();
     });
 
@@ -195,7 +201,7 @@
         </header>
         <div class="flex gap-5 mx-auto w-fit">
             <label
-                for="avatar"
+                for="uploader"
                 class="hover:cursor-pointer hover:text-slate-500 text-lg"
             >
                 [ UPLOAD ↥ ]
@@ -219,13 +225,14 @@
                 }}>[ SETTINGS ]</button
             >
         </div>
+        <AccountSelect bind:accountArray={accounts}></AccountSelect>
         {#if showSettings}
             <Settings bind:accountArray={accounts}></Settings>
         {/if}
         <div class="w-full border border-dashed my-5"></div>
         <input
             accept="text/csv"
-            id="avatar"
+            id="uploader"
             type="file"
             class="hidden"
             onchange={handleFileUpload}

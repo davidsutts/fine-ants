@@ -35,6 +35,7 @@ import (
 	"strconv"
 
 	"github.com/ausocean/cloud/datastore"
+	"github.com/davidsutts/fine-ants/accounts"
 	"github.com/davidsutts/fine-ants/transactions"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/log"
@@ -60,6 +61,10 @@ func (svc *service) registerEndpoints(app *fiber.App) {
 		Post("/categorise", svc.categoriseTransactionHandler).
 		Get("/get-all", svc.getAllTransactionsHandler).
 		Get("/download", svc.downloadTransactionsHandler)
+
+	api.Group("/accounts").
+		Post("/update", svc.updateAccountHandler).
+		Get("/get-all", svc.getAllAccountsHandler)
 }
 
 func errorHandler(c *fiber.Ctx, err error) error {
@@ -190,4 +195,38 @@ func (svc *service) downloadTransactionsHandler(c *fiber.Ctx) error {
 	c.Response().Header.Set("Content-Disposition", "attachment; filename=transactions.csv")
 
 	return nil
+}
+
+func (svc *service) updateAccountHandler(c *fiber.Ctx) error {
+	accs := []accounts.Account{}
+	err := json.Unmarshal(c.Body(), &accs)
+	if err != nil {
+		return fmt.Errorf("unable to parse body: %v", err)
+	}
+
+	log.Infof("accounts: %+v", accs)
+
+	ctx := c.Context()
+	for _, acc := range accs {
+		var err error
+		if acc.UUID == "" {
+			err = accounts.CreateAccount(ctx, svc.store, acc.Name)
+		} else {
+			err = accounts.UpdateAccount(ctx, svc.store, acc.UUID, acc.Name)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to update/create account: %v", err)
+		}
+	}
+
+	return svc.getAllAccountsHandler(c)
+}
+
+func (svc *service) getAllAccountsHandler(c *fiber.Ctx) error {
+	accs, err := accounts.GetAllAccounts(c.Context(), svc.store)
+	if err != nil {
+		return fmt.Errorf("failed getting all transactions: %v", err)
+	}
+
+	return c.JSON(accs)
 }
