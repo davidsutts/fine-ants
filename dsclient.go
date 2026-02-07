@@ -4,12 +4,14 @@ import (
 	"context"
 
 	"github.com/ausocean/cloud/datastore"
+	"github.com/davidsutts/fine-ants/accounts"
 	"github.com/davidsutts/fine-ants/transactions"
 	"github.com/gofiber/fiber/v2/log"
 )
 
 func registerEntities(store datastore.Store) {
 	datastore.RegisterEntity(transactions.TypeTransaction, func() datastore.Entity { return &transactions.Transaction{} })
+	datastore.RegisterEntity(accounts.TypeAccount, func() datastore.Entity { return &accounts.Account{} })
 }
 
 func (svc *service) getStore(ctx context.Context) {

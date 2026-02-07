@@ -18,6 +18,7 @@ const TypeTransaction = "Transaction"
 
 type Transaction struct {
 	ID            string
+	AccountUUID   string
 	EffectiveDate time.Time
 	EnteredDate   time.Time
 	Description   string
@@ -87,14 +88,14 @@ func ParseTransactionsFromCSV(data []byte) ([]Transaction, error) {
 	return trans, nil
 }
 
-func GetTransactionHash(effectiveDate time.Time, amount, balance float64, desc string) string {
+func GetTransactionHash(effectiveDate time.Time, amount, balance float64, desc string, uuid string) string {
 	data := fmt.Appendf(nil, "%v:%f:%f:%s", effectiveDate, amount, balance, desc)
 	return fmt.Sprintf("%x", sha256.Sum256(data))
 }
 
 // Create will try to create a transaction.
 func (t *Transaction) Create(ctx context.Context, store datastore.Store) error {
-	t.ID = GetTransactionHash(t.EffectiveDate, t.Amount, t.Balance, t.Description)
+	t.ID = GetTransactionHash(t.EffectiveDate, t.Amount, t.Balance, t.Description, t.AccountUUID)
 	key := store.NameKey(TypeTransaction, t.ID)
 	return store.Create(ctx, key, t)
 }
@@ -102,7 +103,7 @@ func (t *Transaction) Create(ctx context.Context, store datastore.Store) error {
 func (t *Transaction) UpdateCategory(ctx context.Context, store datastore.Store, category string) error {
 	id := t.ID
 	if id == "" {
-		id = GetTransactionHash(t.EffectiveDate, t.Amount, t.Balance, t.Description)
+		id = GetTransactionHash(t.EffectiveDate, t.Amount, t.Balance, t.Description, t.AccountUUID)
 	}
 
 	dst := &Transaction{}

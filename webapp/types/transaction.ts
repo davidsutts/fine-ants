@@ -1,6 +1,7 @@
 import { apiRequest, method } from "../src/lib/api";
 
 export type transaction = {
+  AccountUUID: string;
   EffectiveDate: Date;
   EnteredDate: Date;
   Description: string;
@@ -18,6 +19,7 @@ export function getAllTransactions(): Promise<transaction[]> {
     (txs: transaction[]) => {
       return txs.map((tx: transaction) => {
         return {
+          AccountUUID: tx.AccountUUID,
           EffectiveDate: new Date(tx.EffectiveDate),
           EnteredDate: new Date(tx.EnteredDate),
           Amount: tx.Amount,
@@ -42,6 +44,7 @@ export function categoriseTransaction(tx: transaction, category: string) {
     JSON.stringify(tx),
   ).then((tx: transaction) => {
     return {
+      AccountUUID: tx.AccountUUID,
       EffectiveDate: new Date(tx.EffectiveDate),
       EnteredDate: new Date(tx.EnteredDate),
       Amount: tx.Amount,

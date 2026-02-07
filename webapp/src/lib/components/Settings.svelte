@@ -1,5 +1,11 @@
 <script lang="ts">
-    let { accountArray = $bindable() }: { accountArray: string[] } = $props();
+    import { updateAccounts, type account } from "../../../types/account";
+
+    let { accountArray = $bindable() }: { accountArray: account[] } = $props();
+
+    async function handleAccountsChange(e: Event) {
+        accountArray = await updateAccounts(accountArray);
+    }
 </script>
 
 <div class="border border-dashed my-5"></div>
@@ -11,7 +17,7 @@
                 [ <input
                     class="text-slate-500"
                     type="text"
-                    value={a}
+                    value={a.Name}
                     onchange={(e: Event) => {
                         const input = e.target as HTMLInputElement;
                         let v = input.value;
@@ -19,7 +25,8 @@
                             accountArray.splice(i, 1);
                             return;
                         }
-                        accountArray[i] = input.value;
+                        accountArray[i].Name = input.value;
+                        handleAccountsChange(e);
                     }}
                 /> ]
             </div>
@@ -29,9 +36,10 @@
                 class="text-slate-500"
                 type="text"
                 placeholder="new account"
-                onchange={(e: Event) => {
+                onchange={async (e: Event) => {
                     const input = e.target as HTMLInputElement;
-                    accountArray.push(input.value);
+                    accountArray.push({ Name: input.value, UUID: "" });
+                    handleAccountsChange(e);
                     input.value = "";
                 }}
             /> ]
