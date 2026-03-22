@@ -30,3 +30,12 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Vite Dependencies
+*/.vite
+
+# temp files
+tmp
+
+# filestore
+fine-ants
