@@ -15,14 +15,17 @@
     import { onMount } from "svelte";
     import Settings from "./lib/components/Settings.svelte";
     import AccountSelect from "./lib/components/AccountSelect.svelte";
+    import Stats from "./lib/components/Stats.svelte";
+    import type { category } from "../types/category";
 
     let transactions: transaction[] = $state([]);
     let sortIndex: number = $state(0);
 
     const modeList = "LIST";
     const modeSort = "SORT";
-    let pageMode: number = $state(0);
-    const modes = [modeList, modeSort];
+    const modeStats = "STATS";
+    let pageMode: number = $state(2);
+    const modes = [modeList, modeSort, modeStats];
 
     let accounts: account[] = $state([]);
     let showSettings: boolean = $state(false);
@@ -31,11 +34,6 @@
 
     let resolveAccountPromise: ((uuid: string) => void) | null = $state(null);
     let rejectAccountPromise: ((uuid: string) => void) | null = $state(null);
-
-    type category = {
-        name: string;
-        emoji: string;
-    };
 
     const money = Intl.NumberFormat("en-AU", {
         currency: "AUD",
@@ -145,6 +143,8 @@
         {@render table()}
     {:else if modes[pageMode] == modeSort}
         {@render sort()}
+    {:else if modes[pageMode] == modeStats}
+        {@render stats()}
     {/if}
 {/snippet}
 
@@ -220,6 +220,10 @@
     {/if}
 {/snippet}
 
+{#snippet stats()}
+    <Stats bind:accountArray={accounts} bind:transactions {categories}></Stats>
+{/snippet}
+
 <main class="p-5 font-[Cutive_Mono] bg-slate-600 min-h-screen w-screen">
     <div class="bg-slate-200 p-10 w-fit mx-auto">
         <header class="mb-5 flex mx-auto w-fit items-center flex-col">
@@ -241,7 +245,7 @@
             </a>
             <button
                 class="hover:cursor-pointer hover:text-slate-500 text-lg"
-                onmousedown={() => (pageMode = (pageMode + 1) % 2)}
+                onmousedown={() => (pageMode = (pageMode + 1) % modes.length)}
             >
                 [ {modes[pageMode]} ]
             </button>
@@ -270,7 +274,7 @@
             class="hidden"
             onchange={handleFileUpload}
         />
-        <div class="flex gap-5">
+        <div class="flex gap-5 w-full">
             {@render element()}
         </div>
     </div>
