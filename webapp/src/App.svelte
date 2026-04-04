@@ -55,6 +55,8 @@
 
         { name: "Dining", emoji: "☕" },
         { name: "Gift", emoji: "🎁" },
+	{ name: "Entertainment", emoji: "🎱" },
+	{ name: "Travel", emoji: "✈️" },
         { name: "Transfer", emoji: "↔️" },
         { name: "Skip", emoji: "⏩" },
         { name: "Back", emoji: "⏪" },
